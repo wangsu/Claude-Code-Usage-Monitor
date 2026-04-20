@@ -1,6 +1,11 @@
 use std::path::PathBuf;
 use std::process::Command;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 use crate::models::{UsageData, UsageSection};
 
@@ -38,11 +43,13 @@ pub fn poll() -> Result<UsageData, PollError> {
 /// `claude auth status` checks auth state, which causes the CLI to
 /// refresh expired tokens and write updated credentials to disk.
 fn cli_refresh_token() {
-    let _ = Command::new("claude")
-        .args(["auth", "status"])
+    let mut cmd = Command::new("claude");
+    cmd.args(["auth", "status"])
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status();
+        .stderr(std::process::Stdio::null());
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    let _ = cmd.status();
 }
 
 fn fetch_usage_with_fallback(token: &str) -> Result<UsageData, PollError> {
